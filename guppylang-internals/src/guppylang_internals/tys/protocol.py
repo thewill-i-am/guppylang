@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from guppylang_internals.definition.common import DefId
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 class ProtocolInst:
     type_args: tuple[Argument, ...]
     def_id: DefId
+    copyable: bool = field(default=False, kw_only=True)
+    droppable: bool = field(default=False, kw_only=True)
 
     def transform(self, transformer: Transformer) -> "ProtocolInst":
         new_type_args = tuple(arg.transform(transformer) for arg in self.type_args)
@@ -29,16 +31,8 @@ class ProtocolInst:
         return check_protocol(ty, self, loc)
 
     @property
-    def copyable(self) -> bool:
-        return True
-
-    @property
-    def droppable(self) -> bool:
-        return True
-
-    @property
     def linear(self) -> bool:
-        return False
+        return not self.copyable and not self.droppable
 
     def __str__(self) -> str:
         from guppylang_internals.engine import ENGINE

@@ -435,8 +435,8 @@ def parse_self_arg_proto(
     )
     self_ty_placeholder = ExistentialTypeVar.fresh(
         "Self",
-        copyable=False,
-        droppable=False,
+        copyable=self_defn.copyable,
+        droppable=self_defn.droppable,
     )
     assert ctx.self_ty is None
     ctx = replace(ctx, self_ty=self_ty_placeholder)
@@ -497,15 +497,21 @@ def handle_implicit_self_arg_proto(
     ctx.param_var_mapping.update({param.name: param for param in self_defn.params})
     self_args = [param.to_bound() for param in self_defn.params]
     proto_inst = self_defn.check_instantiate(self_args, loc=arg)
-    self_arg = BoundTypeVar("self", len(self_args), False, False, (proto_inst,))
+    self_arg = BoundTypeVar(
+        "self",
+        len(self_args),
+        self_defn.copyable,
+        self_defn.droppable,
+        (proto_inst,),
+    )
     ctx.param_var_mapping["self"] = TypeParam(
         idx=len(self_defn.params),
         name="self",
-        must_be_copyable=False,
-        must_be_droppable=False,
+        must_be_copyable=self_defn.copyable,
+        must_be_droppable=self_defn.droppable,
         must_implement=[proto_inst],
     )
-    return FuncInput(self_arg, flags or InputFlags.Inout)
+    return check_function_arg(self_arg, flags or InputFlags.NoFlags, arg, arg.arg, ctx)
 
 
 def handle_implicit_self_arg(

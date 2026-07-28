@@ -610,3 +610,36 @@ def test_copy_drop(validate):
         return copy(42)[0] + copy_drop(1, 2)[1]
 
     validate(main.compile_function())
+
+
+def test_copy_drop_protocol_inheritance(validate):
+    @guppy.protocol
+    class CopyProto(Copy):
+        """Empty copyable protocol"""
+
+    @guppy.protocol
+    class DropProto(Drop):
+        """Empty droppable protocol"""
+
+    @guppy.protocol
+    class CopyDropProto(Copy, Drop):
+        """Empty copyable and droppable protocol"""
+
+    @guppy
+    def copy[T: CopyProto](x: T) -> tuple[T, T]:
+        return x, x
+
+    @guppy
+    def drop[T: DropProto](x: T @ owned) -> None:
+        pass
+
+    @guppy
+    def copy_drop[T: CopyDropProto](x: T, y: T) -> tuple[T, T]:
+        return x, x
+
+    @guppy
+    def main() -> int:
+        drop(array(1.0))
+        return copy(42)[0] + copy_drop(1, 2)[1]
+
+    validate(main.compile_function())

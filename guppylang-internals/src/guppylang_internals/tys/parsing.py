@@ -317,8 +317,8 @@ def _arg_from_proto(
         param = TypeParam(
             len(ctx.param_var_mapping),
             proto_defn.name,
-            must_be_copyable=False,
-            must_be_droppable=False,
+            must_be_copyable=proto_defn.copyable,
+            must_be_droppable=proto_defn.droppable,
             must_implement=[inst],
         )
         # Create a fresh parameter to represent this protocol bound. If we see another
@@ -481,6 +481,8 @@ def parse_parameter(
                         if proto_inst := parse_bound(
                             elt, globals, param_var_mapping, allow_free_vars
                         ):
+                            must_be_copyable |= proto_inst.copyable
+                            must_be_droppable |= proto_inst.droppable
                             bounds.append(proto_inst)
                         else:
                             raise GuppyError(UnrecognisedBound(elt, ast.unparse(elt)))
@@ -500,8 +502,8 @@ def parse_parameter(
                 return TypeParam(
                     idx,
                     node.name,
-                    must_be_copyable=False,
-                    must_be_droppable=False,
+                    must_be_copyable=proto_inst.copyable,
+                    must_be_droppable=proto_inst.droppable,
                     must_implement=[proto_inst],
                 )
             else:

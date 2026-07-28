@@ -87,9 +87,20 @@ class RawProtocolDef(ProtocolDef, ParsableDef):
                 param_vars_mapping[param.name] = param
                 params.append(param)
 
+        copyable = False
+        droppable = False
+
         match cls_def.bases:
             case []:
                 pass
+            case bases if all(
+                isinstance(base, ast.Name) and base.id in ("Copy", "Drop")
+                for base in bases
+            ):
+                for base in bases:
+                    assert isinstance(base, ast.Name)
+                    copyable |= base.id == "Copy"
+                    droppable |= base.id == "Drop"
             # We allow `Generic[...]` or `Protocol[...]` to specify  parameters with the
             # legacy syntax.
             case [base] if elems := try_parse_generic_base(
@@ -140,7 +151,9 @@ class RawProtocolDef(ProtocolDef, ParsableDef):
                     )
                     raise GuppyError(err)
 
-        return ParsedProtocolDef(self.id, self.name, cls_def, params, func_defs)
+        return ParsedProtocolDef(
+            self.id, self.name, cls_def, params, func_defs, copyable, droppable
+        )
 
 
 @dataclass(frozen=True)
@@ -150,13 +163,21 @@ class ParsedProtocolDef(ProtocolDef, CheckableDef):
     defined_at: ast.ClassDef
     params: Sequence[Parameter]
     members: Mapping[str, DefId]
+    copyable: bool = False
+    droppable: bool = False
 
     def check(self, globals: "Globals") -> "CheckedProtocolDef":
         """Checks the member function types and returns a checked definition."""
         # It would be nice to check here that all of the methods are well
         # formed, but they're all already individually queued in the engine.
         return CheckedProtocolDef(
-            self.id, self.name, self.defined_at, self.params, self.members
+            self.id,
+            self.name,
+            self.defined_at,
+            self.params,
+            self.members,
+            copyable=self.copyable,
+            droppable=self.droppable,
         )
 
     def check_instantiate(
@@ -164,7 +185,9 @@ class ParsedProtocolDef(ProtocolDef, CheckableDef):
     ) -> ProtocolInst:
         """Checks if the protocol can be instantiated with the given arguments."""
         check_all_args(self.params, args, self.name, loc)
-        return ProtocolInst(tuple(args), self.id)
+        return ProtocolInst(
+            tuple(args), self.id, copyable=self.copyable, droppable=self.droppable
+        )
 
 
 @dataclass(frozen=True)
@@ -174,13 +197,17 @@ class CheckedProtocolDef(ProtocolDef, CompiledDef):
     defined_at: ast.ClassDef | None
     params: Sequence[Parameter]
     member_defs: Mapping[str, DefId]
+    copyable: bool = field(default=False, kw_only=True)
+    droppable: bool = field(default=False, kw_only=True)
 
     def check_instantiate(
         self, args: Sequence[Argument], loc: AstNode | None = None
     ) -> ProtocolInst:
         """Checks if the protocol can be instantiated with the given arguments."""
         check_all_args(self.params, args, self.name, loc)
-        return ProtocolInst(tuple(args), self.id)
+        return ProtocolInst(
+            tuple(args), self.id, copyable=self.copyable, droppable=self.droppable
+        )
 
     def member_sig(self, name: str) -> FunctionType:
         from guppylang_internals.definition.declaration import ParsedFunctionDecl

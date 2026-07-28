@@ -1,0 +1,9 @@
+Error: Expected a droppable type (at $FILE:23:8)
+   | 
+21 | @guppy
+22 | def main(q: qubit) -> None:
+23 |     foo(LinearType(q))
+   |         ^^^^^^^^^^^^^ Expected a droppable type, got type `LinearType` which is
+   |                       not implicitly droppable
+
+Guppy compilation failed due to 1 previous error
